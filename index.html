@@ -52,6 +52,12 @@ input[type=number]{ -moz-appearance:textfield; appearance:textfield; }
 input[type=text]{ width:100%; }
 input[type=date]{ color-scheme: dark; }
 input[type=checkbox]{ width:16px; height:16px; accent-color:var(--navy-bright); cursor:pointer; }
+textarea{
+  width:100%; min-height:112px; resize:vertical; font-family:ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  color:var(--text); background:var(--bg-soft); border:1px solid var(--border); border-radius:8px; padding:8px; font-size:12px;
+}
+code, pre{ font-family:ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; }
+pre{ white-space:pre-wrap; background:var(--bg-soft); border:1px solid var(--border-soft); border-radius:8px; padding:8px; font-size:11.5px; color:var(--text-dim); }
 button{
   font-family:inherit; cursor:pointer; border:1px solid var(--border);
   background:var(--card); color:var(--text); border-radius:9px; padding:6px 11px;
@@ -543,9 +549,19 @@ function defaultState(){
   };
 }
 
-/* ---------- opslag (lokaal nu, later eventueel Firebase/Firestore) ---------- */
+/* ---------- opslag: lokaal + optionele Firebase/Firestore-sync ---------- */
 const STORAGE_KEY = 'dd-budget-planner-v1';
 const BACKUP_STORAGE_KEY = 'dd-budget-planner-v1-last-good-backup';
+const FIREBASE_CONFIG_STORAGE_KEY = 'dd-budget-planner-firebase-config';
+const FIREBASE_SDK_VERSION = '11.10.0';
+const FIRESTORE_COLLECTION = 'budgetPlanners';
+const FIRESTORE_DOC_ID = 'dion-dara';
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: '',
+  authDomain: '',
+  projectId: '',
+  appId: ''
+};
 
 function isPlainObject(value){
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -627,14 +643,179 @@ function downloadJson(filename, data){
   URL.revokeObjectURL(a.href);
 }
 
+function localSave(state){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function firebaseConfigTemplate(){
+  return JSON.stringify({
+    apiKey: '...',
+    authDomain: 'jouw-project.firebaseapp.com',
+    projectId: 'jouw-project',
+    appId: '...'
+  }, null, 2);
+}
+
+function loadFirebaseConfig(){
+  try{
+    const raw = localStorage.getItem(FIREBASE_CONFIG_STORAGE_KEY);
+    if (!raw) return {...DEFAULT_FIREBASE_CONFIG};
+    return {...DEFAULT_FIREBASE_CONFIG, ...JSON.parse(raw)};
+  }catch(e){
+    console.error('Firebase-config laden mislukt', e);
+    return {...DEFAULT_FIREBASE_CONFIG};
+  }
+}
+
+function firebaseConfigIsComplete(config){
+  return !!(config && config.apiKey && config.authDomain && config.projectId && config.appId);
+}
+
+function saveFirebaseConfigFromText(text){
+  const parsed = JSON.parse(text);
+  const config = {...DEFAULT_FIREBASE_CONFIG, ...parsed};
+  if (!firebaseConfigIsComplete(config)){
+    throw new Error('Firebase-config mist apiKey, authDomain, projectId of appId.');
+  }
+  localStorage.setItem(FIREBASE_CONFIG_STORAGE_KEY, JSON.stringify(config));
+  return config;
+}
+
+const CloudAdapter = {
+  app:null, auth:null, db:null, docRef:null, modules:null, unsubscribe:null, user:null,
+  status:'Firebase niet verbonden', saveTimer:null, applyingRemote:false, initialized:false,
+  config:loadFirebaseConfig(),
+  statusText(){ return this.status; },
+  isConfigured(){ return firebaseConfigIsComplete(this.config); },
+  isConnected(){ return !!(this.db && this.docRef && this.user); },
+  async loadModules(){
+    if (this.modules) return this.modules;
+    const base = `https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}`;
+    const [app, firestore, auth] = await Promise.all([
+      import(`${base}/firebase-app.js`),
+      import(`${base}/firebase-firestore.js`),
+      import(`${base}/firebase-auth.js`)
+    ]);
+    this.modules = {app, firestore, auth};
+    return this.modules;
+  },
+  async connect(interactive=true){
+    if (!this.isConfigured()){
+      this.status = 'Firebase-config ontbreekt';
+      renderCloudStatus();
+      return false;
+    }
+    try{
+      this.status = 'Firebase laden...';
+      renderCloudStatus();
+      const {app, firestore, auth} = await this.loadModules();
+      this.app = app.getApps().length ? app.getApps()[0] : app.initializeApp(this.config);
+      this.auth = auth.getAuth(this.app);
+      this.db = firestore.getFirestore(this.app);
+      this.docRef = firestore.doc(this.db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
+      if (!this.auth.currentUser && interactive){
+        const provider = new auth.GoogleAuthProvider();
+        await auth.signInWithPopup(this.auth, provider);
+      }
+      this.user = this.auth.currentUser;
+      if (!this.user){
+        this.status = 'Firebase klaar, nog niet ingelogd';
+        renderCloudStatus();
+        return false;
+      }
+      this.attachSnapshot();
+      this.status = 'Firebase verbonden als ' + (this.user.email || this.user.uid);
+      renderCloudStatus();
+      return true;
+    }catch(e){
+      console.error('Firebase verbinden mislukt', e);
+      this.status = 'Firebase-fout: ' + (e && e.message ? e.message : e);
+      renderCloudStatus();
+      return false;
+    }
+  },
+  attachSnapshot(){
+    if (this.unsubscribe || !this.docRef) return;
+    const {firestore} = this.modules;
+    this.unsubscribe = firestore.onSnapshot(this.docRef, snap=>{
+      if (!snap.exists()){
+        this.status = 'Firebase verbonden, cloud-document is nog leeg';
+        renderCloudStatus();
+        return;
+      }
+      const remote = snap.data().state;
+      const validation = validateBudgetState(remote);
+      if (!validation.ok){
+        console.error('Firestore-data ongeldig', validation.errors);
+        this.status = 'Firebase-data ongeldig, lokale data behouden';
+        renderCloudStatus();
+        return;
+      }
+      if (JSON.stringify(remote) === JSON.stringify(state)) return;
+      DataAdapter.backup(state, 'voor Firestore-sync');
+      this.applyingRemote = true;
+      state = remote;
+      window.state = state;
+      try{ localSave(state); }catch(e){ console.error('lokale kopie Firestore-data opslaan mislukt', e); }
+      this.applyingRemote = false;
+      this.status = 'Firebase-data geladen';
+      renderActiveTab();
+    }, err=>{
+      console.error('Firestore live-sync fout', err);
+      this.status = 'Firebase live-sync fout: ' + err.message;
+      renderCloudStatus();
+    });
+  },
+  queueSave(state){
+    if (!this.isConnected() || this.applyingRemote) return;
+    clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(()=> this.saveNow(state), 500);
+  },
+  async saveNow(state){
+    if (!this.isConnected()) return false;
+    const validation = validateBudgetState(state);
+    if (!validation.ok){
+      this.status = 'Niet naar Firebase opgeslagen: lokale data ongeldig';
+      renderCloudStatus();
+      return false;
+    }
+    try{
+      const {firestore} = this.modules;
+      await firestore.setDoc(this.docRef, {
+        state,
+        updatedAt: firestore.serverTimestamp(),
+        updatedBy: this.user.email || this.user.uid
+      }, {merge:true});
+      this.status = 'Firebase opgeslagen om ' + new Date().toLocaleTimeString('nl-NL');
+      renderCloudStatus();
+      return true;
+    }catch(e){
+      console.error('Firestore opslaan mislukt', e);
+      this.status = 'Firebase opslaan mislukt: ' + e.message;
+      renderCloudStatus();
+      return false;
+    }
+  },
+  async signOut(){
+    if (this.unsubscribe){ this.unsubscribe(); this.unsubscribe = null; }
+    if (this.auth){
+      const {auth} = this.modules;
+      await auth.signOut(this.auth);
+    }
+    this.user = null;
+    this.status = 'Firebase uitgelogd';
+    renderCloudStatus();
+  }
+};
+
 const DataAdapter = {
-  // Huidige implementatie: puur lokaal op dit toestel.
-  // Voor Firestore later: vervang save()/load() door Firestore set()/onSnapshot().
+  // Lokaal blijft altijd de eerste veiligheidslaag. Firestore is optionele live-sync erbovenop.
   // Firebase Storage is voor losse bestanden; Firestore is de juiste plek voor live app-data.
-  // met dezelfde state-vorm (1 groot JSON-document per koppel).
+  // We bewaren dezelfde state-vorm als 1 groot JSON-document per koppel.
   save(state){
     try{
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localSave(state);
+      CloudAdapter.queueSave(state);
       return true;
     }catch(e){ console.error('opslaan mislukt', e); return false; }
   },
@@ -680,6 +861,13 @@ function persist(){
   const ok = DataAdapter.save(state);
   const el = document.getElementById('saveStatus');
   if (el) el.textContent = ok ? ('Lokaal opgeslagen · ' + new Date().toLocaleTimeString('nl-NL')) : 'Opslaan mislukt';
+}
+
+function renderCloudStatus(){
+  const cloud = document.getElementById('cloudStatus');
+  if (cloud) cloud.textContent = CloudAdapter.statusText();
+  const save = document.getElementById('saveStatus');
+  if (save && CloudAdapter.isConnected()) save.textContent = CloudAdapter.statusText();
 }
 
 /* ---------- generieke input-binding ---------- */
@@ -1074,6 +1262,7 @@ function renderSpaardoelen(){
 
 /* ---------- data & back-up tab ---------- */
 function renderDataTab(){
+  const configText = CloudAdapter.isConfigured() ? JSON.stringify(CloudAdapter.config, null, 2) : '';
   document.getElementById('tab-data').innerHTML = `
     <div class="card">
       <div class="card-head"><h2>Back-up &amp; overdracht</h2>
@@ -1092,15 +1281,31 @@ function renderDataTab(){
       <input type="file" id="fileImport" accept="application/json" style="display:none">
     </div>
     <div class="card">
-      <div class="card-head"><h2>Later: automatisch synchroniseren tussen jullie toestellen</h2></div>
+      <div class="card-head"><h2>Firebase / Firestore sync</h2><span class="hint" id="cloudStatus">${CloudAdapter.statusText()}</span></div>
       <p style="color:var(--text-dim);font-size:13.5px;line-height:1.5">
-        Deze app is gebouwd zodat opslag makkelijk om te zetten is naar Firebase/Firestore: alle
+        Deze app kan nu live synchroniseren via Firebase/Firestore: alle
         schrijf- en leesacties lopen nu al via één centraal punt (<code>DataAdapter</code>). Zodra je wilt,
-        vervangen we <code>save()</code>/<code>load()</code> door Firestore-calls (met live sync tussen
-        jouw en Dara's telefoon) zonder dat de rest van de app hoeft te veranderen. Firebase Storage is
+        Firestore-sync loopt via <code>DataAdapter</code> naast localStorage, zodat JSON-back-up en lokale
+        opslag blijven werken. Firebase Storage is
         vooral voor bestanden; voor deze live budgetgegevens is Firestore de logische volgende stap.
       </p>
-      <button class="ghost small" disabled>Cloud-sync (binnenkort)</button>
+      <textarea id="firebaseConfigInput" spellcheck="false" placeholder="${firebaseConfigTemplate().replaceAll('"','&quot;')}">${configText}</textarea>
+      <div class="toolbar" style="margin-top:8px">
+        <button class="ghost small" id="btnSaveFirebaseConfig">Firebase-config opslaan</button>
+        <button class="primary small" id="btnConnectFirebase">Verbinden met Google</button>
+        <button class="ghost small" id="btnUploadCloud">Lokale stand naar cloud zetten</button>
+        <button class="ghost small" id="btnFirebaseSignOut">Uitloggen</button>
+      </div>
+      <pre>Firestore rules voorstel:
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /budgetPlanners/dion-dara {
+      allow read, write: if request.auth != null
+        &amp;&amp; request.auth.token.email in ['jouw-email@gmail.com', 'dara-email@gmail.com'];
+    }
+  }
+}</pre>
     </div>
   `;
   document.getElementById('btnExport').addEventListener('click', ()=>{
@@ -1160,6 +1365,30 @@ function renderDataTab(){
       persist();
       renderActiveTab();
     }
+  });
+  document.getElementById('btnSaveFirebaseConfig').addEventListener('click', ()=>{
+    try{
+      CloudAdapter.config = saveFirebaseConfigFromText(document.getElementById('firebaseConfigInput').value);
+      CloudAdapter.status = 'Firebase-config opgeslagen';
+      renderCloudStatus();
+    }catch(err){
+      alert('Firebase-config niet opgeslagen: ' + err.message);
+    }
+  });
+  document.getElementById('btnConnectFirebase').addEventListener('click', async ()=>{
+    await CloudAdapter.connect(true);
+  });
+  document.getElementById('btnUploadCloud').addEventListener('click', async ()=>{
+    if (!CloudAdapter.isConnected()){
+      const connected = await CloudAdapter.connect(true);
+      if (!connected) return;
+    }
+    if (confirm('Lokale stand naar Firestore schrijven? Dit overschrijft het cloud-document voor Dion & Dara.')){
+      await CloudAdapter.saveNow(state);
+    }
+  });
+  document.getElementById('btnFirebaseSignOut').addEventListener('click', async ()=>{
+    await CloudAdapter.signOut();
   });
 }
 
