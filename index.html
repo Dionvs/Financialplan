@@ -1,0 +1,1203 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dion & Dara — Budget Planner</title>
+<style>
+:root{
+  --bg:#0a0f1c;
+  --bg-soft:#0d1526;
+  --card:#121b2e;
+  --card-hover:#16213a;
+  --border:#1f2b45;
+  --border-soft:#182238;
+  --text:#e7ecf7;
+  --text-dim:#8b97b3;
+  --text-faint:#5b6785;
+  --navy:#3b6fe0;
+  --navy-bright:#5b8dff;
+  --navy-deep:#152447;
+  --green:#34d399;
+  --green-bg:rgba(52,211,153,.12);
+  --red:#f87171;
+  --red-bg:rgba(248,113,113,.12);
+  --amber:#fbbf24;
+  --radius:16px;
+  --radius-sm:10px;
+  --shadow: 0 8px 30px rgba(0,0,0,.35);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
+body{
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgba(59,111,224,.16), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(91,141,255,.10), transparent 55%),
+    var(--bg);
+  min-height:100vh;
+  padding-bottom:28px;
+}
+::selection{background:rgba(91,141,255,.35);}
+input, select{
+  font-family:inherit; color:var(--text); background:var(--bg-soft);
+  border:1px solid var(--border); border-radius:8px; padding:5px 7px; font-size:12.5px;
+  outline:none; transition:border-color .15s, box-shadow .15s;
+}
+input:focus, select:focus{ border-color:var(--navy-bright); box-shadow:0 0 0 3px rgba(91,141,255,.18); }
+input[type=number]{ text-align:right; width:100px; }
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+input[type=number]{ -moz-appearance:textfield; appearance:textfield; }
+input[type=text]{ width:100%; }
+input[type=date]{ color-scheme: dark; }
+input[type=checkbox]{ width:16px; height:16px; accent-color:var(--navy-bright); cursor:pointer; }
+button{
+  font-family:inherit; cursor:pointer; border:1px solid var(--border);
+  background:var(--card); color:var(--text); border-radius:9px; padding:6px 11px;
+  font-size:12.5px; font-weight:600; transition:.15s;
+}
+button:hover{ background:var(--card-hover); border-color:var(--navy-bright); }
+button.primary{ background:linear-gradient(135deg, var(--navy), var(--navy-bright)); border:none; color:#fff; }
+button.primary:hover{ filter:brightness(1.08); }
+button.ghost{ background:transparent; border:1px dashed var(--border); color:var(--text-dim); }
+button.danger-ghost{ background:transparent; border:1px solid transparent; color:var(--text-faint); padding:3px 6px; font-size:15px; line-height:1; }
+button.danger-ghost:hover{ color:var(--red); border-color:var(--red); background:var(--red-bg); }
+button.small{ padding:4px 8px; font-size:12px; }
+
+.topbar{
+  position:sticky; top:0; z-index:20;
+  background:rgba(10,15,28,.85); backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border-soft);
+  padding:10px 18px;
+}
+.topbar-inner{ max-width:1100px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.brand{ display:flex; align-items:center; gap:10px; }
+.brand-dot{ width:10px; height:10px; border-radius:50%; background:var(--navy-bright); box-shadow:0 0 12px var(--navy-bright); }
+.brand h1{ font-size:16px; margin:0; font-weight:700; letter-spacing:.2px; }
+.save-status{ font-size:11.5px; color:var(--text-faint); }
+
+.scenario-toggle{ display:flex; align-items:center; gap:10px; background:var(--card); border:1px solid var(--border); border-radius:999px; padding:4px; }
+.scenario-toggle button{ border:none; background:transparent; border-radius:999px; padding:6px 14px; font-size:12.5px; color:var(--text-dim); }
+.scenario-toggle button.active{ background:linear-gradient(135deg, var(--navy), var(--navy-bright)); color:#fff; }
+
+.tabs{ max-width:1100px; margin:10px auto 0; padding:0 18px; display:flex; gap:6px; flex-wrap:wrap; }
+.tab-btn{ background:transparent; border:1px solid var(--border-soft); color:var(--text-dim); border-radius:10px; padding:7px 12px; font-size:12.5px; }
+.tab-btn.active{ background:var(--card); color:var(--text); border-color:var(--navy-bright); box-shadow:0 0 0 1px rgba(91,141,255,.25) inset; }
+
+.wrap{ max-width:1100px; margin:14px auto; padding:0 18px; display:none; }
+.wrap.active{ display:block; }
+
+.card{
+  background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+  padding:14px 14px 12px; margin-bottom:12px; box-shadow:var(--shadow);
+}
+.card-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; gap:8px; flex-wrap:wrap; }
+.card-head h2{ font-size:14.5px; margin:0; font-weight:700; color:var(--text); }
+.card-head .hint{ font-size:11.5px; color:var(--text-faint); }
+
+.kpi-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:9px; }
+.kpi{
+  background:var(--bg-soft); border:1px solid var(--border-soft); border-radius:var(--radius-sm);
+  padding:10px 12px; position:relative; overflow:hidden;
+}
+.kpi::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--navy-bright); }
+.kpi.pos::before{ background:var(--green); }
+.kpi.neg::before{ background:var(--red); }
+.kpi .label{ font-size:10.5px; color:var(--text-dim); margin-bottom:5px; }
+.kpi .value{ font-size:17px; font-weight:700; }
+.kpi .value.pos{ color:var(--green); }
+.kpi .value.neg{ color:var(--red); }
+
+table{ width:100%; border-collapse:collapse; }
+th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-faint); padding:5px 6px; border-bottom:1px solid var(--border); }
+td{ padding:5px 6px; border-bottom:1px solid var(--border-soft); font-size:12.5px; vertical-align:middle; }
+tr:last-child td{ border-bottom:none; }
+td.num{ text-align:right; }
+.tot-row td{ font-weight:700; border-top:1px solid var(--border); border-bottom:none; padding-top:8px; }
+.tot-row .value.pos{ color:var(--green); }
+.tot-row .value.neg{ color:var(--red); }
+.row-actions{ text-align:center; width:30px; }
+.add-row-btn{ margin-top:8px; }
+.list-summary{
+  display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  background:var(--bg-soft); border:1px solid var(--border-soft); border-radius:var(--radius-sm);
+  padding:8px 10px; margin-bottom:8px;
+}
+.list-summary strong{ font-size:13px; }
+.list-summary .hint{ font-size:11.5px; color:var(--text-faint); }
+.move-select{ width:116px; padding:4px 6px; font-size:12px; }
+
+.progress-track{ background:var(--bg-soft); border:1px solid var(--border-soft); border-radius:999px; height:9px; overflow:hidden; width:100%; min-width:70px; }
+.progress-fill{ height:100%; background:linear-gradient(90deg, var(--navy), var(--navy-bright)); border-radius:999px; }
+.progress-label{ font-size:11px; color:var(--text-dim); margin-top:3px; text-align:right; }
+
+.donut-row{ display:flex; gap:14px; flex-wrap:wrap; }
+.donut{
+  width:84px; height:84px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  background: conic-gradient(var(--navy-bright) calc(var(--pct,0)*1%), var(--border-soft) 0);
+  flex:0 0 auto;
+}
+.donut-inner{ width:62px; height:62px; border-radius:50%; background:var(--card); display:flex; align-items:center; justify-content:center; flex-direction:column; }
+.donut-inner b{ font-size:14px; }
+.donut-inner span{ font-size:9.5px; color:var(--text-faint); }
+.donut-wrap{ display:flex; flex-direction:column; align-items:center; gap:6px; width:96px; }
+.donut-wrap .name{ font-size:12px; color:var(--text-dim); text-align:center; }
+
+.goal{
+  background:var(--bg-soft); border:1px solid var(--border-soft); border-radius:var(--radius-sm);
+  padding:12px 14px; margin-bottom:10px;
+}
+.goal-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+.goal-name-input{ font-weight:700; font-size:14px; border:none; background:transparent; padding:2px 0; width:auto; min-width:80px; }
+.goal-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin-bottom:8px; }
+.goal-grid label{ display:block; font-size:10.5px; color:var(--text-faint); margin-bottom:3px; }
+.goal-grid input{ width:100%; }
+.goal-stats{ display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--text-dim); margin-top:6px; }
+.goal-stats b{ color:var(--text); }
+
+.section-title{ font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); margin:18px 0 8px; padding-top:3px; border-top:1px solid var(--border-soft); }
+.section-title:first-child{ border-top:none; margin-top:0; }
+
+.footer-note{ text-align:center; color:var(--text-faint); font-size:11px; margin-top:18px; }
+.toolbar{ display:flex; gap:7px; flex-wrap:wrap; margin-bottom:12px; }
+.compact-layout{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; align-items:start; }
+.compact-layout .card{ padding:12px; margin-bottom:0; box-shadow:none; overflow-x:visible; }
+.compact-layout .card-head{ margin-bottom:7px; }
+.compact-layout th{ padding:5px 6px; font-size:10px; }
+.compact-layout td{ padding:5px 6px; font-size:12.5px; }
+.compact-layout input{ padding:6px 7px; font-size:12.5px; }
+.compact-layout input[type=number]{ width:82px; }
+.compact-layout .add-row-btn{ margin-top:8px; }
+.savings-panel{ margin-top:12px; }
+.savings-head{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:9px; margin-bottom:10px; }
+.goal-table-wrap{ overflow-x:visible; }
+.goal-table{ table-layout:fixed; }
+.goal-table th{ white-space:normal; line-height:1.25; padding:5px 4px; font-size:10px; }
+.goal-table td{ padding:5px 4px; font-size:12px; }
+.goal-table input{ padding:6px 7px; font-size:12px; }
+.goal-table input[type=text]{ min-width:0; width:100%; }
+.goal-table input[type=number]{ width:100%; min-width:58px; }
+.goal-table input[type=date]{ width:100%; min-width:112px; }
+.goal-table .progress-track{ min-width:54px; margin-top:4px; }
+.goal-table tfoot td{ font-weight:700; border-top:1px solid var(--border); padding-top:10px; }
+.goal-table .col-name{ width:12%; }
+.goal-table .col-money{ width:9%; }
+.goal-table .col-progress{ width:9%; }
+.goal-table .col-date{ width:12%; }
+.goal-table .col-rate{ width:8%; }
+.goal-table .col-actions{ width:32px; }
+.goal-summary-row{ display:flex; justify-content:space-between; gap:12px; margin-top:12px; padding-top:10px; border-top:1px solid var(--border); font-weight:700; }
+
+@media (max-width:640px){
+  .topbar-inner{ flex-direction:column; align-items:stretch; }
+  .goal-grid{ grid-template-columns:repeat(2,1fr); }
+  .compact-layout{ grid-template-columns:1fr; }
+  .compact-layout .card{ padding:12px; }
+  .goal-table-wrap{ overflow-x:auto; }
+  .goal-table{ min-width:760px; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-dot"></div>
+      <div>
+        <h1>Dion &amp; Dara — Budget Planner</h1>
+        <div class="save-status" id="saveStatus">Lokaal opgeslagen op dit toestel</div>
+      </div>
+    </div>
+    <div class="scenario-toggle" id="scenarioToggle">
+      <button data-scenario="voor">Voor verkoop</button>
+      <button data-scenario="na">Na verkoop</button>
+    </div>
+  </div>
+  <div class="tabs" id="tabs">
+    <button class="tab-btn" data-tab="dashboard">Dashboard</button>
+    <button class="tab-btn" data-tab="gezamenlijk">Gezamenlijk</button>
+    <button class="tab-btn" data-tab="dion">Dion</button>
+    <button class="tab-btn" data-tab="dara">Dara</button>
+    <button class="tab-btn" data-tab="spaardoelen">Spaardoelen</button>
+    <button class="tab-btn" data-tab="data">Data &amp; back-up</button>
+  </div>
+</div>
+
+<div class="wrap" id="tab-dashboard"></div>
+<div class="wrap" id="tab-gezamenlijk"></div>
+<div class="wrap" id="tab-dion"></div>
+<div class="wrap" id="tab-dara"></div>
+<div class="wrap" id="tab-spaardoelen"></div>
+<div class="wrap" id="tab-data"></div>
+
+<div class="footer-note">Alles wordt lokaal op dit toestel bewaard (localStorage). Niets wordt naar een server verstuurd.</div>
+
+<script>
+/* =========================================================
+   Dion & Dara — Budget Planner (lokale HTML-versie)
+   Rekenmotor is 1-op-1 gebaseerd op de formules uit het
+   originele Excel-werkboek (V29).
+   ========================================================= */
+
+/* ---------- helpers ---------- */
+function round2(n){ return Math.round((n + Number.EPSILON) * 100) / 100; }
+function eur(n){
+  if (n === null || n === undefined || isNaN(n)) return '€ -';
+  const sign = n < 0 ? '-' : '';
+  return sign + '€ ' + Math.abs(n).toLocaleString('nl-NL', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function pct(n){ return (Math.round((n||0)*1000)/10) + '%'; }
+function percentInputValue(n){
+  if (n === null || n === undefined || isNaN(n)) return '';
+  return round2((Number(n)||0) * 100);
+}
+function uid(){ return 'id' + Math.random().toString(36).slice(2,10); }
+function formatDateNL(value){
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d)) return value;
+  return String(d.getDate()).padStart(2,'0') + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + d.getFullYear();
+}
+function getPath(obj, path){
+  return path.split('.').reduce((o,k)=> (o==null?o:o[k]), obj);
+}
+function setPath(obj, path, value){
+  const keys = path.split('.');
+  let o = obj;
+  for (let i=0;i<keys.length-1;i++) o = o[keys[i]];
+  o[keys[keys.length-1]] = value;
+}
+function sumBedrag(list){
+  return round2((list||[]).reduce((s,r)=> s + (Number(r.bedrag)||0), 0));
+}
+function effectiveBedrag(row){
+  const b = Number(row.bedrag)||0;
+  return row.jaarlijks ? b/12 : b;
+}
+function sumEffective(list){
+  return round2((list||[]).reduce((s,r)=> s + effectiveBedrag(r), 0));
+}
+const CATEGORY_ICONS = [
+  [/huis|hypotheek|vve/i, '🏠'],
+  [/water/i, '💧'],
+  [/energie|eneco|gas|stroom/i, '⚡'],
+  [/verzeker/i, '🛡️'],
+  [/belasting/i, '📄'],
+  [/entertainment|netflix|prime|disney|spotify/i, '🎬'],
+  [/internet|telefoon/i, '📶'],
+  [/pensioen/i, '💼'],
+  [/schuld|correctie|duo/i, '💳'],
+  [/inkomsten/i, '💶'],
+  [/variabel|boodschap|benzine|uitjes|kleding/i, '🛒'],
+  [/overig/i, '📦'],
+];
+function categoryIcon(categorie){
+  const c = String(categorie||'');
+  for (const [re, icon] of CATEGORY_ICONS) if (re.test(c)) return icon;
+  return '•';
+}
+
+/* ---------- rekenmotor ---------- */
+function monthsRemaining(targetDateStr, today){
+  if (!targetDateStr) return null;
+  const t = new Date(targetDateStr);
+  if (isNaN(t)) return null;
+  const months = (t.getFullYear()-today.getFullYear())*12 + (t.getMonth()-today.getMonth());
+  return Math.max(1, months);
+}
+function futureValue(current, monthlyFixed, annualRate, months){
+  current = current || 0; monthlyFixed = monthlyFixed || 0;
+  if (!annualRate) return current + monthlyFixed*months;
+  const i = annualRate/12;
+  const growth = Math.pow(1+i, months);
+  return current*growth + monthlyFixed*((growth-1)/i);
+}
+function calcDoel(doel, today){
+  const doelbedrag = Number(doel.doelbedrag)||0;
+  const algespaard = Number(doel.algespaard)||0;
+  const vasteInleg = Number(doel.vasteInleg)||0;
+  const rendement = Number(doel.rendement)||0;
+  const nogTeGaan = Math.max(0, doelbedrag - algespaard);
+  const voortgang = doelbedrag>0 ? algespaard/doelbedrag : 0;
+  let benodigdPerMaand = null, benodigdeExtraInleg = null, verwachteWaarde = null;
+  const months = monthsRemaining(doel.doeldatum, today);
+  if (months !== null && doelbedrag > 0){
+    const fv = futureValue(algespaard, vasteInleg, rendement, months);
+    verwachteWaarde = round2(fv);
+    const tekort = doelbedrag - fv;
+    if (!rendement){ benodigdeExtraInleg = round2(Math.max(0, tekort/months)); }
+    else{
+      const i = rendement/12;
+      const annuiteit = (Math.pow(1+i,months)-1)/i;
+      benodigdeExtraInleg = round2(Math.max(0, tekort/annuiteit));
+    }
+    benodigdPerMaand = round2(vasteInleg + benodigdeExtraInleg);
+  }
+  return { nogTeGaan, voortgang, benodigdPerMaand, benodigdeExtraInleg, verwachteWaarde, months };
+}
+function calcGroep(doelen, spaarpotDezeMaand, today){
+  const berekend = doelen.map(d => ({ doel:d, ...calcDoel(d, today) }));
+  // Vaste inleg van ALLE doelen (ook 'alleen vast bedrag'-doelen zoals Beleggen) telt mee als al gecommitteerd.
+  const totaalVasteInleg = sumBedrag(doelen.map(d=>({bedrag:d.vasteInleg})));
+  // Het extra overschot/tekort wordt alleen naar rato verdeeld over doelen die NIET op 'alleen vast bedrag' staan.
+  const verdeelbaar = berekend.filter(b => !b.doel.vastBedrag);
+  const totaalBenodigd = round2(verdeelbaar.reduce((s,b)=> s + (b.benodigdPerMaand||0), 0));
+  const totaalExtraBenodigd = round2(verdeelbaar.reduce((s,b)=> s + (b.benodigdeExtraInleg||0), 0));
+  const extraPot = Math.max(0, (spaarpotDezeMaand||0) - totaalVasteInleg);
+  return berekend.map(b=>{
+    const vasteInleg = Number(b.doel.vasteInleg)||0;
+    if (b.doel.vastBedrag){
+      return { ...b, berekendeExtraInleg: 0, werkelijkeInleg: round2(vasteInleg), totaalVasteInleg, totaalBenodigd, totaalExtraBenodigd };
+    }
+    const extraAandeel = totaalExtraBenodigd>0 ? extraPot * ((b.benodigdeExtraInleg||0)/totaalExtraBenodigd) : 0;
+    return { ...b, berekendeExtraInleg: round2(extraAandeel), werkelijkeInleg: round2(vasteInleg + extraAandeel), totaalVasteInleg, totaalBenodigd, totaalExtraBenodigd };
+  });
+}
+function calcScenario(state){
+  const scenario = state.meta.scenario;
+  const salarisDion = Number(state.personen.dion.salaris)||0;
+  const salarisDara = Number(state.personen.dara.salaris)||0;
+  const totaalSalaris = salarisDion + salarisDara;
+  const inkomenRatioDion = totaalSalaris>0 ? salarisDion/totaalSalaris : 0;
+  const inkomenRatioDara = totaalSalaris>0 ? salarisDara/totaalSalaris : 0;
+  const s = state[scenario];
+  const vasteLastenTotaal = sumEffective(s.gezamenlijk.vasteLasten);
+  const variabelTotaal = sumBedrag(s.gezamenlijk.variabel);
+  const spaarpotDezeMaand = Number(s.spaarpotDezeMaand)||0;
+
+  let effDion, effDara, zakgeldDion, zakgeldDara, hypotheekBedrag = 0;
+  if (scenario === 'voor'){
+    const minDion = Number(s.verdeling.minimumDion);
+    effDion = Math.max(minDion, inkomenRatioDion);
+    effDara = 1 - effDion;
+    const pot = vasteLastenTotaal + variabelTotaal + spaarpotDezeMaand;
+    zakgeldDion = round2(salarisDion - pot*effDion);
+    zakgeldDara = round2(salarisDara - pot*effDara);
+  } else {
+    const hypDion = Number(s.verdeling.hypotheekDion);
+    const hypDara = 1 - hypDion;
+    hypotheekBedrag = sumBedrag(s.gezamenlijk.hypotheek);
+    const overigePot = vasteLastenTotaal + variabelTotaal + spaarpotDezeMaand;
+    zakgeldDion = round2(salarisDion - (hypotheekBedrag*hypDion + overigePot*inkomenRatioDion));
+    zakgeldDara = round2(salarisDara - (hypotheekBedrag*hypDara + overigePot*inkomenRatioDara));
+    effDion = hypDion; effDara = hypDara;
+  }
+  function persoonlijk(p, zakgeld){
+    const persoonlijkeVasteLasten = sumEffective(s[p].vasteLasten);
+    const resterendVoorVariabel = round2(zakgeld - persoonlijkeVasteLasten);
+    const variabeleUitgaven = sumBedrag(s[p].variabel);
+    const beschikbaarVoorSparen = round2(resterendVoorVariabel - variabeleUitgaven);
+    return { persoonlijkeVasteLasten, resterendVoorVariabel, variabeleUitgaven, beschikbaarVoorSparen };
+  }
+  const dion = { zakgeld: zakgeldDion, ...persoonlijk('dion', zakgeldDion) };
+  const dara = { zakgeld: zakgeldDara, ...persoonlijk('dara', zakgeldDara) };
+  return {
+    totaalSalaris, inkomenRatioDion, inkomenRatioDara,
+    vasteLastenTotaal: round2(vasteLastenTotaal + hypotheekBedrag),
+    overigeVasteLastenTotaal: vasteLastenTotaal, hypotheekBedrag,
+    variabelTotaal, spaarpotDezeMaand, effDion, effDara, dion, dara
+  };
+}
+
+/* ---------- default data (zelfde uitgangspunt als het Excel-bestand) ---------- */
+function defaultState(){
+  const blankVar = (n) => Array.from({length:n}, ()=>({id:uid(), categorie:'Variabel', post:'', bedrag:0}));
+  const blankGoal = (naam, rendement=0.0125) => ({ id:uid(), naam, doelbedrag:0, algespaard:0, doeldatum:'', vasteInleg:0, rendement });
+
+  return {
+    meta: { scenario:'voor' },
+    personen: {
+      dion: { naam:'Dion', salaris:2450 },
+      dara: { naam:'Dara', salaris:3010 },
+    },
+    voor: {
+      verdeling: { minimumDion: 0.40 },
+      spaarpotDezeMaand: 0,
+      gezamenlijk: {
+        vasteLasten: [
+          {id:uid(), categorie:'Huis', post:'Hypotheek', bedrag:2000},
+          {id:uid(), categorie:'Water', post:'Evides nieuw adres', bedrag:20},
+          {id:uid(), categorie:'Water', post:'Evides oud adres', bedrag:20},
+          {id:uid(), categorie:'Energie', post:'Eneco nieuw adres', bedrag:32},
+          {id:uid(), categorie:'Energie', post:'Eneco oud adres', bedrag:50},
+          {id:uid(), categorie:'Verzekeringen', post:'Woon nieuw adres', bedrag:24.23},
+          {id:uid(), categorie:'Verzekeringen', post:'Woon oud adres', bedrag:9.29},
+          {id:uid(), categorie:'Belastingen', post:'Gemeente', bedrag:83.96},
+          {id:uid(), categorie:'Belastingen', post:'Waterschap', bedrag:37.22},
+          {id:uid(), categorie:'Entertainment', post:'Netflix', bedrag:15.99},
+          {id:uid(), categorie:'Overig', post:'ING', bedrag:4.55},
+          {id:uid(), categorie:'Overig', post:'Sportschool', bedrag:62.95},
+        ],
+        variabel: [
+          {id:uid(), categorie:'Variabel', post:'Boodschappen', bedrag:500},
+          {id:uid(), categorie:'Variabel', post:'Benzine', bedrag:0},
+          {id:uid(), categorie:'Variabel', post:'Uitjes', bedrag:0},
+          ...blankVar(4),
+        ],
+      },
+      dion: {
+        vasteLasten: [
+          {id:uid(), categorie:'Verzekeringen', post:'Autoverzekering', bedrag:28.89},
+          {id:uid(), categorie:'Verzekeringen', post:'Zorgverzekering', bedrag:191.45},
+          {id:uid(), categorie:'Internet/telefoon', post:'Telefoon', bedrag:7.5},
+          {id:uid(), categorie:'Overig', post:'ANWB', bedrag:8.58},
+          {id:uid(), categorie:'Overig', post:'ING', bedrag:3.9},
+          {id:uid(), categorie:'Entertainment', post:'Spotify', bedrag:6.99},
+          {id:uid(), categorie:'Entertainment', post:'Prime', bedrag:4.99},
+          {id:uid(), categorie:'Belastingen', post:'Wegenbelasting', bedrag:23},
+          {id:uid(), categorie:'Verzekeringen', post:'Reisverzekering', bedrag:23.12},
+          {id:uid(), categorie:'Inkomsten/Correcties', post:'Zorgtoeslag', bedrag:0},
+          {id:uid(), categorie:'Schuld/Correcties', post:'DUO', bedrag:-324},
+          {id:uid(), categorie:'Belasting', post:'Belastingdienst', bedrag:0},
+        ],
+        variabel: ['Eten buiten de deur','Benzine/vervoer','Uitjes','Kleding/hobby','Overig']
+          .map(post=>({id:uid(), categorie:'Variabel', post, bedrag:0})),
+      },
+      dara: {
+        vasteLasten: [
+          {id:uid(), categorie:'Huis', post:'Hypotheek', bedrag:907.51},
+          {id:uid(), categorie:'Huis', post:'VVE', bedrag:164.1},
+          {id:uid(), categorie:'Belastingen', post:'Wegenbelasting', bedrag:23},
+          {id:uid(), categorie:'Belastingen', post:'Waterschap', bedrag:37.22},
+          {id:uid(), categorie:'Belastingen', post:'Gemeente', bedrag:83.96},
+          {id:uid(), categorie:'Verzekeringen', post:'Zorgverzekering', bedrag:225},
+          {id:uid(), categorie:'Verzekeringen', post:'Auto', bedrag:43.59},
+          {id:uid(), categorie:'Verzekeringen', post:'Fiets p/j', bedrag:9.66},
+          {id:uid(), categorie:'Entertainment', post:'Prime', bedrag:4.99},
+          {id:uid(), categorie:'Entertainment', post:'Disney+', bedrag:10.99},
+          {id:uid(), categorie:'Internet/telefoon', post:'Telefoon', bedrag:10},
+          {id:uid(), categorie:'Internet/telefoon', post:'Internet', bedrag:32.5},
+          {id:uid(), categorie:'Overig', post:'ING', bedrag:3.9},
+          {id:uid(), categorie:'Overig', post:'ANWB p/j', bedrag:6},
+          {id:uid(), categorie:'Belasting', post:'Belastingteruggave', bedrag:-226},
+        ],
+        variabel: ['Eten buiten de deur','Benzine/vervoer','Uitjes','Kleding/hobby','Overig']
+          .map(post=>({id:uid(), categorie:'Variabel', post, bedrag:0})),
+      },
+    },
+    na: {
+      verdeling: { hypotheekDion: 0.50 },
+      spaarpotDezeMaand: 500,
+      gezamenlijk: {
+        hypotheek: [
+          {id:uid(), categorie:'Huis', post:'Hypotheek', bedrag:2000},
+        ],
+        vasteLasten: [
+          {id:uid(), categorie:'Water', post:'Evides', bedrag:20},
+          {id:uid(), categorie:'Energie', post:'Eneco', bedrag:75},
+          {id:uid(), categorie:'Verzekeringen', post:'Zorg Dara', bedrag:225},
+          {id:uid(), categorie:'Verzekeringen', post:'Zorg Dion', bedrag:191.45},
+          {id:uid(), categorie:'Verzekeringen', post:'Woon', bedrag:24.23},
+          {id:uid(), categorie:'Verzekeringen', post:'Auto Dara', bedrag:43.59},
+          {id:uid(), categorie:'Verzekeringen', post:'Auto Dion', bedrag:28.89},
+          {id:uid(), categorie:'Verzekeringen', post:'Reis Dion', bedrag:9.64},
+          {id:uid(), categorie:'Verzekeringen', post:'Fiets Dara', bedrag:0},
+          {id:uid(), categorie:'Belastingen', post:'Weg Dara', bedrag:23},
+          {id:uid(), categorie:'Belastingen', post:'Weg Dion', bedrag:23},
+          {id:uid(), categorie:'Belastingen', post:'Gemeente', bedrag:83.96},
+          {id:uid(), categorie:'Belastingen', post:'Waterschap', bedrag:37.22},
+          {id:uid(), categorie:'Internet/telefoon', post:'Internet', bedrag:32.5},
+          {id:uid(), categorie:'Internet/telefoon', post:'Tel Dara', bedrag:10},
+          {id:uid(), categorie:'Internet/telefoon', post:'Tel Dion', bedrag:7.5},
+          {id:uid(), categorie:'Entertainment', post:'Netflix', bedrag:15.99},
+          {id:uid(), categorie:'Entertainment', post:'Disney+', bedrag:10.99},
+          {id:uid(), categorie:'Entertainment', post:'Spotify Dion', bedrag:6.99},
+          {id:uid(), categorie:'Pensioen', post:'SPF pensioen', bedrag:312},
+          {id:uid(), categorie:'Overig', post:'ANWB', bedrag:18},
+          {id:uid(), categorie:'Overig', post:'ING', bedrag:4.55},
+          {id:uid(), categorie:'Overig', post:'Sportschool', bedrag:62.95},
+          {id:uid(), categorie:'Overig', post:'Waterpomp', bedrag:17},
+        ],
+        variabel: [
+          {id:uid(), categorie:'Variabel', post:'Boodschappen', bedrag:500},
+          {id:uid(), categorie:'Variabel', post:'Benzine', bedrag:150},
+          {id:uid(), categorie:'Variabel', post:'Uitjes', bedrag:0},
+          {id:uid(), categorie:'Variabel', post:'overig', bedrag:100},
+          ...blankVar(4),
+        ],
+      },
+      dion: {
+        vasteLasten: [{id:uid(), categorie:'Entertainment', post:'Prime', bedrag:4.99}],
+        variabel: [{id:uid(), categorie:'Variabel', post:'Eten buiten de deur', bedrag:0}],
+      },
+      dara: {
+        vasteLasten: [{id:uid(), categorie:'Entertainment', post:'Prime', bedrag:4.99}],
+        variabel: [{id:uid(), categorie:'Variabel', post:'Eten buiten de deur', bedrag:0}],
+      },
+    },
+    spaardoelen: {
+      gezamenlijk: [
+        {id:uid(), naam:'vakantie', doelbedrag:5000, algespaard:100, doeldatum:'2028-12-31', vasteInleg:0, rendement:0.0125},
+        {id:uid(), naam:'buffer', doelbedrag:10000, algespaard:0, doeldatum:'2030-12-31', vasteInleg:0, rendement:0.0125},
+        {id:uid(), naam:'Beleggen', doelbedrag:50000, algespaard:17941, doeldatum:'2030-12-31', vasteInleg:0, rendement:0.08, vastBedrag:true},
+      ],
+      dion: [
+        {id:uid(), naam:'koffie', doelbedrag:300, algespaard:6.77, doeldatum:'2026-12-31', vasteInleg:0, rendement:0.0125},
+        {id:uid(), naam:'buffer', doelbedrag:5000, algespaard:800, doeldatum:'2028-12-31', vasteInleg:0, rendement:0.0125},
+        {id:uid(), naam:'Beleggen', doelbedrag:50000, algespaard:17941, doeldatum:'2030-12-31', vasteInleg:250, rendement:0.08, vastBedrag:true},
+      ],
+      dara: [],
+    },
+  };
+}
+
+/* ---------- opslag (lokaal nu, later eventueel Firebase/Firestore) ---------- */
+const STORAGE_KEY = 'dd-budget-planner-v1';
+const BACKUP_STORAGE_KEY = 'dd-budget-planner-v1-last-good-backup';
+
+function isPlainObject(value){
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function validateRows(rows, label, errors){
+  if (!Array.isArray(rows)){
+    errors.push(label + ' moet een lijst zijn.');
+    return;
+  }
+  rows.forEach((row, i)=>{
+    if (!isPlainObject(row)) errors.push(label + '[' + i + '] is geen geldige regel.');
+  });
+}
+
+function validateGoalRows(rows, label, errors){
+  if (!Array.isArray(rows)){
+    errors.push(label + ' moet een lijst zijn.');
+    return;
+  }
+  rows.forEach((row, i)=>{
+    if (!isPlainObject(row)) errors.push(label + '[' + i + '] is geen geldig spaardoel.');
+  });
+}
+
+function validateBudgetState(candidate){
+  const errors = [];
+  if (!isPlainObject(candidate)){
+    return { ok:false, errors:['Het bestand bevat geen budgetplanner-gegevens.'] };
+  }
+  ['meta','personen','voor','na','spaardoelen'].forEach(key=>{
+    if (!isPlainObject(candidate[key])) errors.push('Ontbrekend of ongeldig onderdeel: ' + key + '.');
+  });
+  if (errors.length) return { ok:false, errors };
+
+  if (!['voor','na'].includes(candidate.meta.scenario)){
+    errors.push('Scenario moet "voor" of "na" zijn.');
+  }
+  ['dion','dara'].forEach(person=>{
+    if (!isPlainObject(candidate.personen[person])) errors.push('Persoon ontbreekt: ' + person + '.');
+  });
+
+  ['voor','na'].forEach(scenario=>{
+    const s = candidate[scenario];
+    if (!isPlainObject(s.verdeling)) errors.push(scenario + '.verdeling ontbreekt.');
+    if (!isPlainObject(s.gezamenlijk)) errors.push(scenario + '.gezamenlijk ontbreekt.');
+    if (!isPlainObject(s.dion)) errors.push(scenario + '.dion ontbreekt.');
+    if (!isPlainObject(s.dara)) errors.push(scenario + '.dara ontbreekt.');
+    if (isPlainObject(s.gezamenlijk)){
+      validateRows(s.gezamenlijk.vasteLasten, scenario + '.gezamenlijk.vasteLasten', errors);
+      validateRows(s.gezamenlijk.variabel, scenario + '.gezamenlijk.variabel', errors);
+      if (scenario === 'na') validateRows(s.gezamenlijk.hypotheek, 'na.gezamenlijk.hypotheek', errors);
+    }
+    ['dion','dara'].forEach(person=>{
+      if (isPlainObject(s[person])){
+        validateRows(s[person].vasteLasten, scenario + '.' + person + '.vasteLasten', errors);
+        validateRows(s[person].variabel, scenario + '.' + person + '.variabel', errors);
+      }
+    });
+  });
+
+  ['gezamenlijk','dion','dara'].forEach(group=>{
+    validateGoalRows(candidate.spaardoelen[group], 'spaardoelen.' + group, errors);
+  });
+
+  return { ok:errors.length === 0, errors };
+}
+
+function backupLabel(){
+  return new Date().toLocaleString('nl-NL');
+}
+
+function downloadJson(filename, data){
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+const DataAdapter = {
+  // Huidige implementatie: puur lokaal op dit toestel.
+  // Voor Firestore later: vervang save()/load() door Firestore set()/onSnapshot().
+  // Firebase Storage is voor losse bestanden; Firestore is de juiste plek voor live app-data.
+  // met dezelfde state-vorm (1 groot JSON-document per koppel).
+  save(state){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      return true;
+    }catch(e){ console.error('opslaan mislukt', e); return false; }
+  },
+  load(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      const validation = validateBudgetState(parsed);
+      if (!validation.ok){
+        console.error('opgeslagen data ongeldig', validation.errors);
+        return null;
+      }
+      return parsed;
+    }catch(e){ console.error('laden mislukt', e); return null; }
+  },
+  backup(state, reason){
+    try{
+      localStorage.setItem(BACKUP_STORAGE_KEY, JSON.stringify({
+        savedAt: new Date().toISOString(),
+        label: backupLabel(),
+        reason,
+        state
+      }));
+      return true;
+    }catch(e){ console.error('back-up maken mislukt', e); return false; }
+  },
+  loadBackup(){
+    try{
+      const raw = localStorage.getItem(BACKUP_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    }catch(e){ console.error('back-up laden mislukt', e); return null; }
+  }
+};
+
+let state = DataAdapter.load() || defaultState();
+window.state = state;
+let activeTab = 'dashboard';
+const TODAY = new Date();
+const expandedLists = {};
+
+function persist(){
+  const ok = DataAdapter.save(state);
+  const el = document.getElementById('saveStatus');
+  if (el) el.textContent = ok ? ('Lokaal opgeslagen · ' + new Date().toLocaleTimeString('nl-NL')) : 'Opslaan mislukt';
+}
+
+/* ---------- generieke input-binding ---------- */
+// Elk element met data-path krijgt zijn waarde uit/naar de state via getPath/setPath.
+function bindInputs(root){
+  root.querySelectorAll('[data-path]').forEach(el=>{
+    const path = el.dataset.path;
+    const type = el.type;
+    const raw = getPath(state, path);
+    if (type === 'checkbox') el.checked = !!raw;
+    else if (el.dataset.percent === 'true') el.value = percentInputValue(raw);
+    else el.value = raw === undefined || raw === null ? '' : raw;
+
+    const commit = ()=>{
+      let v = el.value;
+      if (type === 'number'){
+        v = v === '' ? 0 : parseFloat(v.replace(',', '.'));
+        if (!Number.isFinite(v)) v = 0;
+        if (el.dataset.percent === 'true') v = v / 100;
+      }
+      if (type === 'checkbox') v = el.checked;
+      setPath(state, path, v);
+      persist();
+      renderActiveTab();
+    };
+    el.addEventListener('change', commit);
+    if (type === 'checkbox') el.addEventListener('click', commit);
+  });
+}
+
+/* ---------- tabel-editor voor vaste lasten / variabel ---------- */
+function sortedRowEntries(rows){
+  return (rows||[]).map((row, index)=>({row, index})).sort((a,b)=>{
+    const cat = String(a.row.categorie||'').localeCompare(String(b.row.categorie||''), 'nl', {sensitivity:'base'});
+    if (cat) return cat;
+    const post = String(a.row.post||'').localeCompare(String(b.row.post||''), 'nl', {sensitivity:'base'});
+    if (post) return post;
+    return a.index - b.index;
+  });
+}
+function moveTargetOptions(basePath){
+  const parts = basePath.split('.');
+  if (parts.length !== 3 || parts[2] !== 'vasteLasten') return null;
+  const scenario = parts[0];
+  const current = parts[1];
+  return ['gezamenlijk','dion','dara'].map(key=>{
+    const label = key === 'gezamenlijk' ? 'Gezamenlijk' : (key === 'dion' ? 'Dion' : 'Dara');
+    return `<option value="${scenario}.${key}.vasteLasten" ${key===current?'selected':''}>${label}</option>`;
+  }).join('');
+}
+function renderRowsTable(basePath, rows, opts={}){
+  const withJaar = !!opts.jaarlijks;
+  const total = withJaar ? sumEffective(rows) : sumBedrag(rows);
+  const canCollapse = (rows||[]).length > 10;
+  const isExpanded = !canCollapse || expandedLists[basePath] === true;
+  const moveOptions = opts.moveable ? moveTargetOptions(basePath) : null;
+  const moveHead = moveOptions ? '<th>Van/naar</th>' : '';
+  const moveCol = (i)=> moveOptions ? `<td><select class="move-select" data-move-row="${basePath}.${i}" title="Verplaatsen naar">${moveOptions}</select></td>` : '';
+  const rowsHtml = sortedRowEntries(rows).map(({row:r,index:i})=>{
+    const eff = effectiveBedrag(r);
+    const jaarHint = r.jaarlijks ? `<div class="progress-label" style="text-align:left;margin-top:2px">≈ ${eur(eff)}/mnd</div>` : '';
+    return `
+    <tr>
+      <td style="width:26px;text-align:center;font-size:15px">${categoryIcon(r.categorie)}</td>
+      <td><input type="text" data-path="${basePath}.${i}.categorie" placeholder="Categorie"></td>
+      <td><input type="text" data-path="${basePath}.${i}.post" placeholder="Omschrijving"></td>
+      <td class="num"><input type="number" step="0.01" data-path="${basePath}.${i}.bedrag">${jaarHint}</td>
+      ${withJaar ? `<td style="text-align:center"><input type="checkbox" data-path="${basePath}.${i}.jaarlijks" title="Bedrag is jaarlijks (wordt /12 gerekend)"></td>` : ''}
+      ${moveCol(i)}
+      <td class="row-actions"><button class="danger-ghost" data-remove="${basePath}.${i}" title="Verwijderen">✕</button></td>
+    </tr>`;
+  }).join('');
+  const colspan = 5 + (withJaar ? 1 : 0) + (moveOptions ? 1 : 0);
+  const summary = canCollapse ? `
+    <div class="list-summary">
+      <div><strong>Totaal per maand: ${eur(total)}</strong><div class="hint">${(rows||[]).length} posten, gesorteerd op categorie</div></div>
+      <button class="ghost small" data-toggle-list="${basePath}">${isExpanded?'Inklappen':'Uitklappen'}</button>
+    </div>` : '';
+  if (!isExpanded){
+    return summary + `<button class="ghost small add-row-btn" data-addrow="${basePath}">+ Post toevoegen</button>`;
+  }
+  return `
+    ${summary}
+    <table>
+      <thead><tr>
+        <th></th><th>Categorie</th><th>Omschrijving</th><th style="text-align:right">Bedrag</th>
+        ${withJaar ? '<th style="text-align:center" title="Bedrag is jaarlijks">Jaarlijks?</th>' : ''}${moveHead}<th></th>
+      </tr></thead>
+      <tbody>${rowsHtml || `<tr><td colspan="${colspan}" style="color:var(--text-faint)">Nog geen posten toegevoegd.</td></tr>`}</tbody>
+      <tfoot><tr class="tot-row"><td colspan="3">Totaal per maand</td><td class="num">${eur(total)}</td>${withJaar?'<td></td>':''}${moveOptions?'<td></td>':''}<td></td></tr></tfoot>
+    </table>
+    <button class="ghost small add-row-btn" data-addrow="${basePath}">+ Post toevoegen</button>
+  `;
+}
+
+function handleTableClicks(root){
+  root.querySelectorAll('[data-toggle-list]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const path = btn.dataset.toggleList;
+      expandedLists[path] = expandedLists[path] !== true;
+      renderActiveTab();
+    });
+  });
+  root.querySelectorAll('[data-addrow]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const path = btn.dataset.addrow;
+      const arr = getPath(state, path);
+      arr.push({id:uid(), categorie:'', post:'', bedrag:0});
+      expandedLists[path] = true;
+      persist(); renderActiveTab();
+    });
+  });
+  root.querySelectorAll('[data-remove]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const [path, idxStr] = splitLastIndex(btn.dataset.remove);
+      const arr = getPath(state, path);
+      arr.splice(parseInt(idxStr,10), 1);
+      persist(); renderActiveTab();
+    });
+  });
+  root.querySelectorAll('[data-move-row]').forEach(select=>{
+    select.addEventListener('change', ()=>{
+      const targetPath = select.value;
+      const [sourcePath, idxStr] = splitLastIndex(select.dataset.moveRow);
+      if (!targetPath || targetPath === sourcePath) return;
+      const source = getPath(state, sourcePath);
+      const target = getPath(state, targetPath);
+      if (!Array.isArray(source) || !Array.isArray(target)) return;
+      const idx = parseInt(idxStr, 10);
+      const row = source.splice(idx, 1)[0];
+      if (!row) return;
+      target.push(row);
+      expandedLists[sourcePath] = true;
+      expandedLists[targetPath] = true;
+      persist(); renderActiveTab();
+    });
+  });
+}
+function splitLastIndex(pathWithIndex){
+  const parts = pathWithIndex.split('.');
+  const idx = parts.pop();
+  return [parts.join('.'), idx];
+}
+
+/* ---------- alleen-lezen spaardoelen-overzicht (voor Gezamenlijk/Dion/Dara tabs) ---------- */
+function renderGoalOverviewTable(doelen, spaarpotDezeMaand){
+  const berekend = calcGroep(doelen, spaarpotDezeMaand, TODAY);
+  const totaalDoelbedrag = round2(berekend.reduce((s,b)=>s+(Number(b.doel.doelbedrag)||0),0));
+  const totaalAlGespaard = round2(berekend.reduce((s,b)=>s+(Number(b.doel.algespaard)||0),0));
+  const totaalNogTeGaan = round2(berekend.reduce((s,b)=>s+(b.nogTeGaan||0),0));
+  const totaalBenodigd = round2(berekend.reduce((s,b)=>s+(b.benodigdPerMaand||0),0));
+  const totaalVast = round2(berekend.reduce((s,b)=>s+(Number(b.doel.vasteInleg)||0),0));
+  const totaalExtra = round2(berekend.reduce((s,b)=>s+(b.berekendeExtraInleg||0),0));
+  const totaalWerkelijk = round2(berekend.reduce((s,b)=>s+(b.werkelijkeInleg||0),0));
+  const rows = berekend.map(b=>{
+    const barPct = Math.min(100, Math.round((b.voortgang||0)*100));
+    return `<tr>
+      <td>${b.doel.naam || '(naamloos)'}</td>
+      <td class="num">${eur(Number(b.doel.doelbedrag)||0)}</td>
+      <td class="num">${eur(Number(b.doel.algespaard)||0)}</td>
+      <td class="num">${eur(b.nogTeGaan)}</td>
+      <td><div class="progress-track"><div class="progress-fill" style="width:${barPct}%"></div></div><div class="progress-label">${pct(b.voortgang)}</div></td>
+      <td>${formatDateNL(b.doel.doeldatum)}</td>
+      <td class="num">${b.benodigdPerMaand===null?'—':eur(b.benodigdPerMaand)}</td>
+      <td class="num">${eur(Number(b.doel.vasteInleg)||0)}</td>
+      <td class="num">${eur(b.berekendeExtraInleg||0)}</td>
+      <td class="num">${eur(b.werkelijkeInleg)}</td>
+    </tr>`;
+  }).join('');
+  return `<div class="goal-table-wrap"><table class="goal-table">
+    <thead><tr>
+      <th class="col-name">Spaardoel</th><th class="col-money" style="text-align:right">Doelbedrag</th><th class="col-money" style="text-align:right">Al gespaard</th>
+      <th class="col-money" style="text-align:right">Nog te gaan</th><th class="col-progress">Voortgang</th><th class="col-date">Doeldatum</th>
+      <th class="col-money" style="text-align:right">Benodigde inleg/maand</th><th class="col-money" style="text-align:right">Vaste inleg/mnd</th>
+      <th class="col-money" style="text-align:right">Extra deze maand</th><th class="col-money" style="text-align:right">Inleg deze maand</th>
+    </tr></thead>
+    <tbody>${rows || `<tr><td colspan="10" style="color:var(--text-faint)">Nog geen spaardoelen. Voeg ze toe op het tabblad Spaardoelen.</td></tr>`}</tbody>
+    <tfoot><tr>
+      <td>Totaal</td><td class="num">${eur(totaalDoelbedrag)}</td><td class="num">${eur(totaalAlGespaard)}</td>
+      <td class="num">${eur(totaalNogTeGaan)}</td><td></td><td></td>
+      <td class="num">${eur(totaalBenodigd)}</td><td class="num">${eur(totaalVast)}</td>
+      <td class="num">${eur(totaalExtra)}</td><td class="num">${eur(totaalWerkelijk)}</td>
+    </tr></tfoot>
+  </table></div>`;
+}
+
+
+function renderGoalGroup(basePath, doelen, spaarpotDezeMaand){
+  const berekend = calcGroep(doelen, spaarpotDezeMaand, TODAY);
+  const rows = berekend.map((b,i)=>{
+    const barPct = Math.min(100, Math.round((b.voortgang||0)*100));
+    return `
+    <tr>
+      <td><input type="text" data-path="${basePath}.${i}.naam" placeholder="Naam spaardoel">
+        <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-dim);margin-top:5px">
+          <input type="checkbox" data-path="${basePath}.${i}.vastBedrag"> Vast bedrag
+        </label>
+      </td>
+      <td class="num"><input type="number" step="0.01" data-path="${basePath}.${i}.doelbedrag"></td>
+      <td class="num"><input type="number" step="0.01" data-path="${basePath}.${i}.algespaard"></td>
+      <td class="num">${eur(b.nogTeGaan)}</td>
+      <td><div class="progress-track"><div class="progress-fill" style="width:${barPct}%"></div></div><div class="progress-label">${pct(b.voortgang)}</div></td>
+      <td><input type="date" data-path="${basePath}.${i}.doeldatum"></td>
+      <td class="num">${b.benodigdPerMaand===null?'—':eur(b.benodigdPerMaand)}</td>
+      <td class="num"><input type="number" step="0.01" data-path="${basePath}.${i}.vasteInleg"></td>
+      <td class="num"><input type="number" step="0.01" data-percent="true" data-path="${basePath}.${i}.rendement"></td>
+      <td class="num">${b.verwachteWaarde===null?'—':eur(b.verwachteWaarde)}</td>
+      <td class="row-actions"><button class="danger-ghost" data-remove="${basePath}.${i}" title="Verwijderen">×</button></td>
+    </tr>`;
+  }).join('');
+  const totBenodigd = round2(berekend.reduce((s,b)=>s+(b.benodigdPerMaand||0),0));
+  const totDoelbedrag = round2(berekend.reduce((s,b)=>s+(Number(b.doel.doelbedrag)||0),0));
+  const totAlGespaard = round2(berekend.reduce((s,b)=>s+(Number(b.doel.algespaard)||0),0));
+  const totNogTeGaan = round2(berekend.reduce((s,b)=>s+(b.nogTeGaan||0),0));
+  const totVast = round2(berekend.reduce((s,b)=>s+(Number(b.doel.vasteInleg)||0),0));
+  const totVerwacht = round2(berekend.reduce((s,b)=>s+(b.verwachteWaarde||0),0));
+  return `
+    <div class="goal-table-wrap"><table class="goal-table">
+      <thead><tr>
+        <th class="col-name">Spaardoel</th><th class="col-money" style="text-align:right">Doelbedrag</th><th class="col-money" style="text-align:right">Al gespaard</th>
+        <th class="col-money" style="text-align:right">Nog te gaan</th><th class="col-progress">Voortgang</th><th class="col-date">Doeldatum</th>
+        <th class="col-money" style="text-align:right">Benodigde inleg/maand</th><th class="col-money" style="text-align:right">Vaste inleg/mnd</th>
+        <th class="col-rate" style="text-align:right">Verwacht rendement %</th><th class="col-money" style="text-align:right">Verwachte waarde op datum</th><th class="col-actions"></th>
+      </tr></thead>
+      <tbody>${rows || `<tr><td colspan="11" style="color:var(--text-faint)">Nog geen spaardoelen.</td></tr>`}</tbody>
+      <tfoot><tr>
+        <td>Totaal</td><td class="num">${eur(totDoelbedrag)}</td><td class="num">${eur(totAlGespaard)}</td>
+        <td class="num">${eur(totNogTeGaan)}</td><td></td><td></td>
+        <td class="num">${eur(totBenodigd)}</td><td class="num">${eur(totVast)}</td><td></td>
+        <td class="num">${eur(totVerwacht)}</td><td></td>
+      </tr></tfoot>
+    </table></div>
+    <button class="ghost small add-row-btn" data-addgoal="${basePath}">+ Spaardoel toevoegen</button>
+  `;
+}
+function handleGoalClicks(root){
+  root.querySelectorAll('[data-addgoal]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const path = btn.dataset.addgoal;
+      const arr = getPath(state, path);
+      arr.push({id:uid(), naam:'Nieuw doel', doelbedrag:0, algespaard:0, doeldatum:'', vasteInleg:0, rendement:0.0125});
+      persist(); renderActiveTab();
+    });
+  });
+}
+
+
+/* ---------- dashboard ---------- */
+function renderDashboard(){
+  const r = calcScenario(state);
+  const gGoals = calcGroep(state.spaardoelen.gezamenlijk, r.spaarpotDezeMaand, TODAY);
+  const dionGoals = calcGroep(state.spaardoelen.dion, r.dion.beschikbaarVoorSparen, TODAY);
+  const daraGoals = calcGroep(state.spaardoelen.dara, r.dara.beschikbaarVoorSparen, TODAY);
+  const aandeelLabel = state.meta.scenario === 'na' ? 'inkomensdeel' : 'aandeel';
+  const dashboardAandeelDion = state.meta.scenario === 'na' ? r.inkomenRatioDion : r.effDion;
+  const dashboardAandeelDara = state.meta.scenario === 'na' ? r.inkomenRatioDara : r.effDara;
+  const donut = (label, doelen) => {
+    const doelbedrag = round2(doelen.reduce((s,d)=>s+(Number(d.doel.doelbedrag)||0),0));
+    const algespaard = round2(doelen.reduce((s,d)=>s+(Number(d.doel.algespaard)||0),0));
+    const p = doelbedrag>0 ? Math.round((algespaard/doelbedrag)*100) : 0;
+    return `<div class="donut-wrap">
+      <div class="donut" style="--pct:${p}"><div class="donut-inner"><b>${p}%</b><span>voortgang</span></div></div>
+      <div class="name">${label}<br><span style="color:var(--text-faint)">${eur(algespaard)} / ${eur(doelbedrag)}</span></div>
+    </div>`;
+  };
+
+  document.getElementById('tab-dashboard').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px">
+      <div class="card" style="margin-bottom:0">
+        <div class="card-head"><h2>Inkomen</h2>
+          <span class="hint">${state.meta.scenario==='voor'?'Voor verkoop':'Na verkoop'}</span></div>
+        <div class="kpi-grid">
+          <div class="kpi">
+            <div class="label">Salaris Dion</div>
+            <input type="number" step="0.01" data-path="personen.dion.salaris" style="width:100%;font-size:16px;font-weight:700">
+            <div class="progress-label" style="text-align:left;margin-top:4px">${aandeelLabel} ${pct(dashboardAandeelDion)}</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Salaris Dara</div>
+            <input type="number" step="0.01" data-path="personen.dara.salaris" style="width:100%;font-size:16px;font-weight:700">
+            <div class="progress-label" style="text-align:left;margin-top:4px">${aandeelLabel} ${pct(dashboardAandeelDara)}</div>
+          </div>
+        </div>
+        <div class="tot-row" style="display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+          <span>Totaal</span><span>${eur(r.totaalSalaris)}</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:0">
+        <div class="card-head"><h2>Gezamenlijk</h2><span class="hint">zie tab Gezamenlijk</span></div>
+        <table>
+          <tbody>
+            <tr><td>Vaste lasten</td><td class="num">${eur(r.vasteLastenTotaal)}</td></tr>
+            <tr><td>Variabel</td><td class="num">${eur(r.variabelTotaal)}</td></tr>
+            <tr><td>Sparen</td><td class="num">${eur(r.spaarpotDezeMaand)}</td></tr>
+          </tbody>
+          <tfoot><tr class="tot-row"><td>Totaal</td><td class="num">${eur(round2(r.vasteLastenTotaal + r.variabelTotaal + r.spaarpotDezeMaand))}</td></tr></tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <div class="kpi-grid">
+        <div class="kpi ${r.dion.zakgeld<0?'neg':'pos'}"><div class="label">Zakgeld Dion</div><div class="value ${r.dion.zakgeld<0?'neg':'pos'}">${eur(r.dion.zakgeld)}</div></div>
+        <div class="kpi ${r.dara.zakgeld<0?'neg':'pos'}"><div class="label">Zakgeld Dara</div><div class="value ${r.dara.zakgeld<0?'neg':'pos'}">${eur(r.dara.zakgeld)}</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Spaardoelen — voortgang</h2></div>
+      <div class="donut-row">
+        ${donut('Gezamenlijk', gGoals)}
+        ${donut('Dion', dionGoals)}
+        ${donut('Dara', daraGoals)}
+      </div>
+    </div>
+  `;
+}
+
+/* ---------- gezamenlijk / dion / dara ---------- */
+function renderPersonOrJoint(tabId, key, label){
+  const s = state[state.meta.scenario];
+  const r = calcScenario(state);
+  const isJoint = key === 'gezamenlijk';
+  const data = s[key];
+  const rr = isJoint ? null : r[key];
+
+  const kpiCard = isJoint ? '' : `
+    <div class="card">
+      <div class="card-head"><h2>${label} — persoonlijk dashboard</h2></div>
+      <div class="kpi-grid">
+        <div class="kpi ${rr.zakgeld<0?'neg':'pos'}"><div class="label">Zakgeld volgens scenario</div><div class="value ${rr.zakgeld<0?'neg':'pos'}">${eur(rr.zakgeld)}</div></div>
+        <div class="kpi ${rr.persoonlijkeVasteLasten<0?'neg':''}"><div class="label">Persoonlijke vaste lasten</div><div class="value ${rr.persoonlijkeVasteLasten<0?'neg':''}">${eur(rr.persoonlijkeVasteLasten)}</div></div>
+        <div class="kpi ${rr.resterendVoorVariabel<0?'neg':'pos'}"><div class="label">Resterend voor variabel</div><div class="value ${rr.resterendVoorVariabel<0?'neg':'pos'}">${eur(rr.resterendVoorVariabel)}</div></div>
+        <div class="kpi"><div class="label">Variabele uitgaven</div><div class="value">${eur(rr.variabeleUitgaven)}</div></div>
+        <div class="kpi ${rr.beschikbaarVoorSparen<0?'neg':'pos'}"><div class="label">Beschikbaar voor sparen</div><div class="value ${rr.beschikbaarVoorSparen<0?'neg':'pos'}">${eur(rr.beschikbaarVoorSparen)}</div></div>
+      </div>
+    </div>`;
+
+  const spaarpotVoorGroep = isJoint ? r.spaarpotDezeMaand : rr.beschikbaarVoorSparen;
+  const doelenVoorGroep = state.spaardoelen[key];
+  const hypotheekCard = isJoint && state.meta.scenario==='na' ? `
+    <div class="card">
+      <div class="card-head"><h2>Hypotheek</h2></div>
+      ${renderRowsTable('na.gezamenlijk.hypotheek', data.hypotheek)}
+    </div>` : '';
+  const savingsSummary = isJoint ? `
+    <div class="savings-head">
+      <div class="kpi"><div class="label">Maandelijkse lasten</div><div class="value">${eur(round2(r.vasteLastenTotaal + r.variabelTotaal))}</div></div>
+      <div class="kpi">
+        <div class="label">Spaargeld deze maand</div>
+        <input type="number" step="0.01" data-path="${state.meta.scenario}.spaarpotDezeMaand" style="width:100%;font-size:16px;font-weight:700">
+      </div>
+    </div>` : `
+    <div class="savings-head">
+      <div class="kpi ${rr.beschikbaarVoorSparen<0?'neg':'pos'}"><div class="label">Beschikbaar voor sparen</div><div class="value ${rr.beschikbaarVoorSparen<0?'neg':'pos'}">${eur(rr.beschikbaarVoorSparen)}</div></div>
+    </div>`;
+
+  document.getElementById(tabId).innerHTML = `
+    ${kpiCard}
+    ${hypotheekCard}
+    <div class="compact-layout">
+      <div class="card">
+        <div class="card-head"><h2>${isJoint?(state.meta.scenario==='na'?'Overige vaste lasten':'Vaste lasten'):label+' — eigen vaste lasten'}</h2></div>
+        ${renderRowsTable(`${state.meta.scenario}.${key}.vasteLasten`, data.vasteLasten, {jaarlijks:true, moveable:true})}
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>${isJoint?'Variabel':label+' — eigen variabel'}</h2></div>
+        ${renderRowsTable(`${state.meta.scenario}.${key}.variabel`, data.variabel)}
+      </div>
+    </div>
+    <div class="card savings-panel">
+      <div class="card-head"><h2>Sparen</h2><span class="hint">Spaardoelen bewerken doe je op het tabblad Spaardoelen</span></div>
+      ${savingsSummary}
+      ${renderGoalOverviewTable(doelenVoorGroep, spaarpotVoorGroep)}
+    </div>
+  `;
+}
+
+/* ---------- spaardoelen-tab ---------- */
+function renderSpaardoelen(){
+  const r = calcScenario(state);
+  document.getElementById('tab-spaardoelen').innerHTML = `
+    <div class="section-title">Spaardoelen — Gezamenlijk</div>
+    <div class="card">${renderGoalGroup('spaardoelen.gezamenlijk', state.spaardoelen.gezamenlijk, r.spaarpotDezeMaand)}</div>
+    <div class="section-title">Spaardoelen — Dion</div>
+    <div class="card">${renderGoalGroup('spaardoelen.dion', state.spaardoelen.dion, r.dion.beschikbaarVoorSparen)}</div>
+    <div class="section-title">Spaardoelen — Dara</div>
+    <div class="card">${renderGoalGroup('spaardoelen.dara', state.spaardoelen.dara, r.dara.beschikbaarVoorSparen)}</div>
+  `;
+}
+
+/* ---------- data & back-up tab ---------- */
+function renderDataTab(){
+  document.getElementById('tab-data').innerHTML = `
+    <div class="card">
+      <div class="card-head"><h2>Back-up &amp; overdracht</h2>
+        <span class="hint">Alles staat nu lokaal in de browser op dit toestel</span></div>
+      <p style="color:var(--text-dim);font-size:13.5px;line-height:1.5">
+        Exporteer een JSON-bestand als back-up, of om je gegevens over te zetten naar een ander toestel
+        (of naar Dara's telefoon). Importeer datzelfde bestand daar weer in. Voor importeren of wissen
+        bewaart de app eerst automatisch de huidige stand als lokale nood-back-up.
+      </p>
+      <div class="toolbar">
+        <button class="primary" id="btnExport">Exporteer back-up (JSON)</button>
+        <button class="ghost" id="btnImport">Importeer back-up</button>
+        <button class="ghost" id="btnRestoreBackup">Herstel laatste lokale back-up</button>
+        <button class="ghost" id="btnReset" style="border-color:var(--red);color:var(--red)">Alles wissen</button>
+      </div>
+      <input type="file" id="fileImport" accept="application/json" style="display:none">
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Later: automatisch synchroniseren tussen jullie toestellen</h2></div>
+      <p style="color:var(--text-dim);font-size:13.5px;line-height:1.5">
+        Deze app is gebouwd zodat opslag makkelijk om te zetten is naar Firebase/Firestore: alle
+        schrijf- en leesacties lopen nu al via één centraal punt (<code>DataAdapter</code>). Zodra je wilt,
+        vervangen we <code>save()</code>/<code>load()</code> door Firestore-calls (met live sync tussen
+        jouw en Dara's telefoon) zonder dat de rest van de app hoeft te veranderen. Firebase Storage is
+        vooral voor bestanden; voor deze live budgetgegevens is Firestore de logische volgende stap.
+      </p>
+      <button class="ghost small" disabled>Cloud-sync (binnenkort)</button>
+    </div>
+  `;
+  document.getElementById('btnExport').addEventListener('click', ()=>{
+    downloadJson('dion-dara-budget-backup-' + new Date().toISOString().slice(0,10) + '.json', state);
+  });
+  document.getElementById('btnImport').addEventListener('click', ()=> document.getElementById('fileImport').click());
+  document.getElementById('fileImport').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const imported = JSON.parse(ev.target.result);
+        const validation = validateBudgetState(imported);
+        if (!validation.ok){
+          alert('Deze back-up is niet geimporteerd:\n\n' + validation.errors.slice(0,6).join('\n'));
+          e.target.value = '';
+          return;
+        }
+        if (!confirm('Deze import vervangt alle huidige gegevens. De huidige stand wordt eerst als lokale nood-back-up bewaard. Doorgaan?')){
+          e.target.value = '';
+          return;
+        }
+        DataAdapter.backup(state, 'voor import van ' + file.name);
+        state = imported; window.state = state;
+        persist();
+        renderActiveTab();
+        alert('Back-up geimporteerd.');
+      }catch(err){ alert('Kon dit bestand niet lezen: ' + err.message); }
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  });
+  document.getElementById('btnRestoreBackup').addEventListener('click', ()=>{
+    const backup = DataAdapter.loadBackup();
+    if (!backup || !backup.state){
+      alert('Er is nog geen lokale nood-back-up gevonden.');
+      return;
+    }
+    const validation = validateBudgetState(backup.state);
+    if (!validation.ok){
+      alert('De lokale nood-back-up is ongeldig:\n\n' + validation.errors.slice(0,6).join('\n'));
+      return;
+    }
+    const label = backup.label || backup.savedAt || 'onbekend moment';
+    if (confirm('Laatste lokale nood-back-up herstellen van ' + label + '? De huidige stand wordt eerst opnieuw als nood-back-up bewaard.')){
+      DataAdapter.backup(state, 'voor herstel lokale nood-back-up');
+      state = backup.state; window.state = state;
+      persist();
+      renderActiveTab();
+    }
+  });
+  document.getElementById('btnReset').addEventListener('click', ()=>{
+    if (confirm('Weet je zeker dat je alle gegevens wilt wissen en opnieuw wilt beginnen? De huidige stand wordt eerst als lokale nood-back-up bewaard.')){
+      DataAdapter.backup(state, 'voor alles wissen');
+      state = defaultState(); window.state = state;
+      persist();
+      renderActiveTab();
+    }
+  });
+}
+
+/* ---------- routing / init ---------- */
+function renderActiveTab(){
+  document.querySelectorAll('.tab-btn').forEach(b=> b.classList.toggle('active', b.dataset.tab===activeTab));
+  document.querySelectorAll('.wrap').forEach(w=> w.classList.toggle('active', w.id === 'tab-'+activeTab));
+  document.querySelectorAll('#scenarioToggle button').forEach(b=> b.classList.toggle('active', b.dataset.scenario===state.meta.scenario));
+
+  if (activeTab==='dashboard') renderDashboard();
+  else if (activeTab==='gezamenlijk') renderPersonOrJoint('tab-gezamenlijk','gezamenlijk','Gezamenlijk');
+  else if (activeTab==='dion') renderPersonOrJoint('tab-dion','dion','Dion');
+  else if (activeTab==='dara') renderPersonOrJoint('tab-dara','dara','Dara');
+  else if (activeTab==='spaardoelen') renderSpaardoelen();
+  else if (activeTab==='data') renderDataTab();
+
+  const root = document.getElementById('tab-'+activeTab);
+  bindInputs(root);
+  handleTableClicks(root);
+  handleGoalClicks(root);
+}
+
+document.getElementById('tabs').addEventListener('click', (e)=>{
+  const btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+  activeTab = btn.dataset.tab;
+  renderActiveTab();
+});
+document.getElementById('scenarioToggle').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  state.meta.scenario = btn.dataset.scenario;
+  persist();
+  renderActiveTab();
+});
+
+renderActiveTab();
+
+</script>
+</body>
+</html>
