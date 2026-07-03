@@ -192,16 +192,76 @@ td.num{ text-align:right; }
 .goal-table .col-progress{ width:9%; }
 .goal-table .col-date{ width:12%; }
 .goal-table .col-rate{ width:8%; }
+.goal-table .col-order{ width:38px; }
 .goal-table .col-actions{ width:32px; }
 .goal-summary-row{ display:flex; justify-content:space-between; gap:12px; margin-top:12px; padding-top:10px; border-top:1px solid var(--border); font-weight:700; }
+.goal-order{ display:flex; flex-direction:column; gap:3px; align-items:center; }
+.goal-order button{ width:24px; height:22px; padding:0; line-height:1; font-size:12px; }
+.goal-order button:disabled{ opacity:.28; cursor:not-allowed; }
 
 @media (max-width:640px){
   .topbar-inner{ flex-direction:column; align-items:stretch; }
+  .brand h1{ font-size:15px; line-height:1.2; }
+  .save-status{ line-height:1.25; }
+  .scenario-toggle button{ flex:1 1 0; padding:8px 10px; }
+  .tabs{ padding:0 12px; gap:7px; }
+  .tab-btn{ padding:8px 10px; line-height:1.15; }
+  .wrap{ padding:0 12px; margin:12px auto; }
   .goal-grid{ grid-template-columns:repeat(2,1fr); }
   .compact-layout{ grid-template-columns:1fr; }
   .compact-layout .card{ padding:12px; }
-  .goal-table-wrap{ overflow-x:auto; }
-  .goal-table{ min-width:760px; }
+  .goal-table-wrap{ overflow-x:visible; }
+  .goal-table{ min-width:0; table-layout:auto; }
+  .goal-table thead{ display:none; }
+  .goal-table tbody,
+  .goal-table tfoot,
+  .goal-table tr,
+  .goal-table td{ display:block; width:100%; }
+  .goal-table tbody tr,
+  .goal-table tfoot tr{
+    border-bottom:1px solid var(--border);
+    padding:8px 0;
+  }
+  .goal-table tbody tr:last-child,
+  .goal-table tfoot tr:last-child{ border-bottom:none; }
+  .goal-table td{
+    border-bottom:none;
+    display:grid;
+    grid-template-columns:minmax(92px, 38%) minmax(0, 1fr);
+    align-items:center;
+    gap:8px;
+    padding:4px 0;
+    min-width:0;
+  }
+  .goal-table td::before{
+    content:attr(data-label);
+    color:var(--text-faint);
+    font-size:10px;
+    line-height:1.2;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    overflow-wrap:anywhere;
+  }
+  .goal-table td.goal-order-cell,
+  .goal-table td.row-actions{
+    display:flex;
+    justify-content:flex-start;
+    gap:8px;
+  }
+  .goal-table td:not([data-label]){
+    grid-template-columns:1fr;
+  }
+  .goal-table td:not([data-label])::before{
+    display:none;
+  }
+  .goal-table td.goal-order-cell::before,
+  .goal-table td.row-actions::before{ display:none; }
+  .goal-order{ flex-direction:row; }
+  .goal-table td.num{ text-align:left; }
+  .goal-table input[type=text],
+  .goal-table input[type=number],
+  .goal-table input[type=date]{ min-width:0; width:100%; }
+  .goal-table .progress-label{ text-align:left; }
 }
 </style>
 </head>
@@ -238,7 +298,7 @@ td.num{ text-align:right; }
 <div class="wrap" id="tab-spaardoelen"></div>
 <div class="wrap" id="tab-data"></div>
 
-<div class="footer-note">Alles wordt lokaal op dit toestel bewaard (localStorage). Niets wordt naar een server verstuurd.</div>
+<div class="footer-note">Gegevens worden lokaal bewaard en, zodra Firebase verbonden is, live gedeeld via Firestore.</div>
 
 <script>
 /* =========================================================
@@ -688,24 +748,23 @@ function saveFirebaseConfigFromText(text){
 }
 
 const CloudAdapter = {
-  app:null, auth:null, db:null, docRef:null, modules:null, unsubscribe:null, user:null,
+  app:null, db:null, docRef:null, modules:null, unsubscribe:null,
   status:'Firebase niet verbonden', saveTimer:null, applyingRemote:false, initialized:false,
   config:loadFirebaseConfig(),
   statusText(){ return this.status; },
   isConfigured(){ return firebaseConfigIsComplete(this.config); },
-  isConnected(){ return !!(this.db && this.docRef && this.user); },
+  isConnected(){ return !!(this.db && this.docRef); },
   async loadModules(){
     if (this.modules) return this.modules;
     const base = `https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}`;
-    const [app, firestore, auth] = await Promise.all([
+    const [app, firestore] = await Promise.all([
       import(`${base}/firebase-app.js`),
-      import(`${base}/firebase-firestore.js`),
-      import(`${base}/firebase-auth.js`)
+      import(`${base}/firebase-firestore.js`)
     ]);
-    this.modules = {app, firestore, auth};
+    this.modules = {app, firestore};
     return this.modules;
   },
-  async connect(interactive=true){
+  async connect(){
     if (!this.isConfigured()){
       this.status = 'Firebase-config ontbreekt';
       renderCloudStatus();
@@ -714,23 +773,12 @@ const CloudAdapter = {
     try{
       this.status = 'Firebase laden...';
       renderCloudStatus();
-      const {app, firestore, auth} = await this.loadModules();
+      const {app, firestore} = await this.loadModules();
       this.app = app.getApps().length ? app.getApps()[0] : app.initializeApp(this.config);
-      this.auth = auth.getAuth(this.app);
       this.db = firestore.getFirestore(this.app);
       this.docRef = firestore.doc(this.db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
-      if (!this.auth.currentUser && interactive){
-        const provider = new auth.GoogleAuthProvider();
-        await auth.signInWithPopup(this.auth, provider);
-      }
-      this.user = this.auth.currentUser;
-      if (!this.user){
-        this.status = 'Firebase klaar, nog niet ingelogd';
-        renderCloudStatus();
-        return false;
-      }
       this.attachSnapshot();
-      this.status = 'Firebase verbonden als ' + (this.user.email || this.user.uid);
+      this.status = 'Firebase live verbonden';
       renderCloudStatus();
       return true;
     }catch(e){
@@ -790,7 +838,7 @@ const CloudAdapter = {
       await firestore.setDoc(this.docRef, {
         state,
         updatedAt: firestore.serverTimestamp(),
-        updatedBy: this.user.email || this.user.uid
+        updatedBy: 'public-link'
       }, {merge:true});
       this.status = 'Firebase opgeslagen om ' + new Date().toLocaleTimeString('nl-NL');
       renderCloudStatus();
@@ -804,12 +852,10 @@ const CloudAdapter = {
   },
   async signOut(){
     if (this.unsubscribe){ this.unsubscribe(); this.unsubscribe = null; }
-    if (this.auth){
-      const {auth} = this.modules;
-      await auth.signOut(this.auth);
-    }
-    this.user = null;
-    this.status = 'Firebase uitgelogd';
+    this.app = null;
+    this.db = null;
+    this.docRef = null;
+    this.status = 'Firebase losgekoppeld';
     renderCloudStatus();
   }
 };
@@ -1067,19 +1113,25 @@ function renderGoalGroup(basePath, doelen, spaarpotDezeMaand){
     const barPct = Math.min(100, Math.round((b.voortgang||0)*100));
     return `
     <tr>
-      <td><input type="text" data-path="${basePath}.${i}.naam" placeholder="Naam spaardoel">
+      <td class="goal-order-cell">
+        <div class="goal-order" aria-label="Volgorde wijzigen">
+          <button class="ghost small" data-move-goal="${basePath}.${i}.-1" title="Omhoog" ${i===0?'disabled':''}>▲</button>
+          <button class="ghost small" data-move-goal="${basePath}.${i}.1" title="Omlaag" ${i===berekend.length-1?'disabled':''}>▼</button>
+        </div>
+      </td>
+      <td data-label="Spaardoel"><input type="text" data-path="${basePath}.${i}.naam" placeholder="Naam spaardoel">
         <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-dim);margin-top:5px">
           <input type="checkbox" data-path="${basePath}.${i}.vastBedrag"> Vast bedrag
         </label>
       </td>
-      <td class="num"><input type="number" step="0.01" data-path="${basePath}.${i}.doelbedrag"></td>
-      <td class="num"><input type="number" step="0.01" data-path="${basePath}.${i}.algespaard"></td>
-      <td class="num">${eur(b.nogTeGaan)}</td>
-      <td><div class="progress-track"><div class="progress-fill" style="width:${barPct}%"></div></div><div class="progress-label">${pct(b.voortgang)}</div></td>
-      <td><input type="date" data-path="${basePath}.${i}.doeldatum"></td>
+      <td data-label="Doelbedrag" class="num"><input type="number" step="0.01" data-path="${basePath}.${i}.doelbedrag"></td>
+      <td data-label="Al gespaard" class="num"><input type="number" step="0.01" data-path="${basePath}.${i}.algespaard"></td>
+      <td data-label="Nog te gaan" class="num">${eur(b.nogTeGaan)}</td>
+      <td data-label="Voortgang"><div class="progress-track"><div class="progress-fill" style="width:${barPct}%"></div></div><div class="progress-label">${pct(b.voortgang)}</div></td>
+      <td data-label="Doeldatum"><input type="date" data-path="${basePath}.${i}.doeldatum"></td>
       <td class="num">${b.benodigdPerMaand===null?'—':eur(b.benodigdPerMaand)}</td>
-      <td class="num"><input type="number" step="0.01" data-path="${basePath}.${i}.vasteInleg"></td>
-      <td class="num"><input type="number" step="0.01" data-percent="true" data-path="${basePath}.${i}.rendement"></td>
+      <td data-label="Vaste inleg/mnd" class="num"><input type="number" step="0.01" data-path="${basePath}.${i}.vasteInleg"></td>
+      <td data-label="Verwacht rendement %" class="num"><input type="number" step="0.01" data-percent="true" data-path="${basePath}.${i}.rendement"></td>
       <td class="num">${b.verwachteWaarde===null?'—':eur(b.verwachteWaarde)}</td>
       <td class="row-actions"><button class="danger-ghost" data-remove="${basePath}.${i}" title="Verwijderen">×</button></td>
     </tr>`;
@@ -1093,14 +1145,14 @@ function renderGoalGroup(basePath, doelen, spaarpotDezeMaand){
   return `
     <div class="goal-table-wrap"><table class="goal-table">
       <thead><tr>
-        <th class="col-name">Spaardoel</th><th class="col-money" style="text-align:right">Doelbedrag</th><th class="col-money" style="text-align:right">Al gespaard</th>
+        <th class="col-order"></th><th class="col-name">Spaardoel</th><th class="col-money" style="text-align:right">Doelbedrag</th><th class="col-money" style="text-align:right">Al gespaard</th>
         <th class="col-money" style="text-align:right">Nog te gaan</th><th class="col-progress">Voortgang</th><th class="col-date">Doeldatum</th>
         <th class="col-money" style="text-align:right">Benodigde inleg/maand</th><th class="col-money" style="text-align:right">Vaste inleg/mnd</th>
         <th class="col-rate" style="text-align:right">Verwacht rendement %</th><th class="col-money" style="text-align:right">Verwachte waarde op datum</th><th class="col-actions"></th>
       </tr></thead>
-      <tbody>${rows || `<tr><td colspan="11" style="color:var(--text-faint)">Nog geen spaardoelen.</td></tr>`}</tbody>
+      <tbody>${rows || `<tr><td colspan="12" style="color:var(--text-faint)">Nog geen spaardoelen.</td></tr>`}</tbody>
       <tfoot><tr>
-        <td>Totaal</td><td class="num">${eur(totDoelbedrag)}</td><td class="num">${eur(totAlGespaard)}</td>
+        <td class="goal-order-cell"></td><td data-label="Spaardoel">Totaal</td><td data-label="Doelbedrag" class="num">${eur(totDoelbedrag)}</td><td data-label="Al gespaard" class="num">${eur(totAlGespaard)}</td>
         <td class="num">${eur(totNogTeGaan)}</td><td></td><td></td>
         <td class="num">${eur(totBenodigd)}</td><td class="num">${eur(totVast)}</td><td></td>
         <td class="num">${eur(totVerwacht)}</td><td></td>
@@ -1110,6 +1162,20 @@ function renderGoalGroup(basePath, doelen, spaarpotDezeMaand){
   `;
 }
 function handleGoalClicks(root){
+  root.querySelectorAll('[data-move-goal]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const parts = btn.dataset.moveGoal.split('.');
+      const direction = parseInt(parts.pop(), 10);
+      const idx = parseInt(parts.pop(), 10);
+      const path = parts.join('.');
+      const arr = getPath(state, path);
+      const next = idx + direction;
+      if (!Array.isArray(arr) || next < 0 || next >= arr.length) return;
+      const item = arr.splice(idx, 1)[0];
+      arr.splice(next, 0, item);
+      persist(); renderActiveTab();
+    });
+  });
   root.querySelectorAll('[data-addgoal]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const path = btn.dataset.addgoal;
@@ -1289,25 +1355,23 @@ function renderDataTab(){
     <div class="card">
       <div class="card-head"><h2>Firebase / Firestore sync</h2><span class="hint" id="cloudStatus">${CloudAdapter.statusText()}</span></div>
       <p style="color:var(--text-dim);font-size:13.5px;line-height:1.5">
-        Deze app kan nu live synchroniseren via Firebase/Firestore. De cloud-sync loopt via
-        <code>DataAdapter</code> naast localStorage, zodat JSON-back-up en lokale
-        opslag blijven werken. Firebase Storage is
-        vooral voor bestanden; voor deze live budgetgegevens is Firestore de logische volgende stap.
+        Deze app synchroniseert live via Firebase/Firestore zonder Google-login. Iedereen met de link
+        kan dezelfde planner lezen en bewerken zodra Firestore-regels dit ene document toestaan.
+        LocalStorage en JSON-back-up blijven bestaan als lokale veiligheidslaag.
       </p>
       <textarea id="firebaseConfigInput" spellcheck="false" placeholder="${firebaseConfigTemplate().replaceAll('"','&quot;')}">${configText}</textarea>
       <div class="toolbar" style="margin-top:8px">
         <button class="ghost small" id="btnSaveFirebaseConfig">Firebase-config opslaan</button>
-        <button class="primary small" id="btnConnectFirebase">Verbinden met Google</button>
+        <button class="primary small" id="btnConnectFirebase">Verbinden met cloud</button>
         <button class="ghost small" id="btnUploadCloud">Lokale stand naar cloud zetten</button>
-        <button class="ghost small" id="btnFirebaseSignOut">Uitloggen</button>
+        <button class="ghost small" id="btnFirebaseSignOut">Cloud loskoppelen</button>
       </div>
       <pre>Firestore rules voorstel:
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /budgetPlanners/dion-dara {
-      allow read, write: if request.auth != null
-        &amp;&amp; request.auth.token.email in ['dionvsluijs@gmail.com', 'dara-email@gmail.com'];
+      allow read, write: if true;
     }
   }
 }</pre>
@@ -1431,6 +1495,7 @@ document.getElementById('scenarioToggle').addEventListener('click', (e)=>{
 });
 
 renderActiveTab();
+CloudAdapter.connect();
 
 </script>
 </body>
