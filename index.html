@@ -1283,9 +1283,8 @@ function renderDataTab(){
     <div class="card">
       <div class="card-head"><h2>Firebase / Firestore sync</h2><span class="hint" id="cloudStatus">${CloudAdapter.statusText()}</span></div>
       <p style="color:var(--text-dim);font-size:13.5px;line-height:1.5">
-        Deze app kan nu live synchroniseren via Firebase/Firestore: alle
-        schrijf- en leesacties lopen nu al via één centraal punt (<code>DataAdapter</code>). Zodra je wilt,
-        Firestore-sync loopt via <code>DataAdapter</code> naast localStorage, zodat JSON-back-up en lokale
+        Deze app kan nu live synchroniseren via Firebase/Firestore. De cloud-sync loopt via
+        <code>DataAdapter</code> naast localStorage, zodat JSON-back-up en lokale
         opslag blijven werken. Firebase Storage is
         vooral voor bestanden; voor deze live budgetgegevens is Firestore de logische volgende stap.
       </p>
