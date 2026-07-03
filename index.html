@@ -1302,7 +1302,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
     match /budgetPlanners/dion-dara {
       allow read, write: if request.auth != null
-        &amp;&amp; request.auth.token.email in ['jouw-email@gmail.com', 'dara-email@gmail.com'];
+        &amp;&amp; request.auth.token.email in ['dionvsluijs@gmail.com', 'dara-email@gmail.com'];
     }
   }
 }</pre>
