@@ -210,58 +210,19 @@ td.num{ text-align:right; }
   .goal-grid{ grid-template-columns:repeat(2,1fr); }
   .compact-layout{ grid-template-columns:1fr; }
   .compact-layout .card{ padding:12px; }
-  .goal-table-wrap{ overflow-x:visible; }
-  .goal-table{ min-width:0; table-layout:auto; }
-  .goal-table thead{ display:none; }
-  .goal-table tbody,
-  .goal-table tfoot,
-  .goal-table tr,
-  .goal-table td{ display:block; width:100%; }
-  .goal-table tbody tr,
-  .goal-table tfoot tr{
-    border-bottom:1px solid var(--border);
-    padding:8px 0;
-  }
-  .goal-table tbody tr:last-child,
-  .goal-table tfoot tr:last-child{ border-bottom:none; }
-  .goal-table td{
-    border-bottom:none;
-    display:grid;
-    grid-template-columns:minmax(92px, 38%) minmax(0, 1fr);
-    align-items:center;
-    gap:8px;
-    padding:4px 0;
-    min-width:0;
-  }
-  .goal-table td::before{
-    content:attr(data-label);
-    color:var(--text-faint);
-    font-size:10px;
-    line-height:1.2;
-    text-transform:uppercase;
-    letter-spacing:.03em;
-    overflow-wrap:anywhere;
-  }
-  .goal-table td.goal-order-cell,
-  .goal-table td.row-actions{
-    display:flex;
-    justify-content:flex-start;
-    gap:8px;
-  }
-  .goal-table td:not([data-label]){
-    grid-template-columns:1fr;
-  }
-  .goal-table td:not([data-label])::before{
-    display:none;
-  }
-  .goal-table td.goal-order-cell::before,
-  .goal-table td.row-actions::before{ display:none; }
-  .goal-order{ flex-direction:row; }
-  .goal-table td.num{ text-align:left; }
-  .goal-table input[type=text],
-  .goal-table input[type=number],
-  .goal-table input[type=date]{ min-width:0; width:100%; }
-  .goal-table .progress-label{ text-align:left; }
+  .goal-table-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .goal-table{ min-width:820px; table-layout:fixed; }
+  .goal-table th{ font-size:9px; line-height:1.15; padding:4px 3px; letter-spacing:.02em; vertical-align:bottom; }
+  .goal-table td{ font-size:11px; line-height:1.2; padding:4px 3px; vertical-align:middle; }
+  .goal-table input{ font-size:11px; padding:5px 6px; }
+  .goal-table input[type=number]{ min-width:54px; }
+  .goal-table input[type=date]{ min-width:104px; font-size:10.5px; }
+  .goal-table .progress-track{ min-width:48px; }
+  .goal-table .progress-label{ font-size:10px; }
+  .goal-order{ gap:2px; }
+  .goal-order button{ width:21px; height:19px; font-size:10px; }
+  .goal-table .col-order{ width:30px; }
+  .goal-table .col-actions{ width:28px; }
 }
 </style>
 </head>
